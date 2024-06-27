@@ -1,7 +1,28 @@
 resource "macaddress" "k3s-support" {}
 
 locals {
-  support_node_settings = var.support_node_settings
+  support_node_settings = defaults(var.support_node_settings, {
+    cores   = 2
+    sockets = 1
+    memory  = 4096
+
+
+    storage_type = "scsi"
+    storage_id   = "local-lvm"
+    disk_size    = "10G"
+    user         = "support"
+    network_tag  = -1
+
+
+
+    db_name = "k3s"
+    db_user = "k3s"
+
+    
+
+    network_bridge = "vmbr0"
+  })
+
   support_node_ip = cidrhost(var.control_plane_subnet, 0)
 }
 
@@ -22,6 +43,8 @@ resource "proxmox_vm_qemu" "k3s-support" {
   sockets = local.support_node_settings.sockets
   memory  = local.support_node_settings.memory
 
+
+  agent = 1
   disk {
     type    = local.support_node_settings.storage_type
     storage = local.support_node_settings.storage_id
@@ -53,6 +76,8 @@ resource "proxmox_vm_qemu" "k3s-support" {
   ipconfig0 = "ip=${local.support_node_ip}/${local.lan_subnet_cidr_bitnum},gw=${var.network_gateway}"
 
   sshkeys = file(var.authorized_keys_file)
+
+  nameserver = var.nameserver
 
   connection {
     type = "ssh"
